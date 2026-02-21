@@ -218,138 +218,161 @@
         <button class="btn-magico btn-cancelar" style="max-width: 250px;" onclick="location.reload()">Volver</button>
     </div>
 
-    <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
-        let listaHermanas = [];
-        let usuarioActual = "";
-        let passActual = "";
-        let hermanaElegida = "";
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
+    let listaHermanas = [];
+    let usuarioActual = "";
+    let passActual = "";
+    let hermanaElegida = "";
 
-        // Cargar nombres al abrir
-        async function cargarHermanas() {
-            try {
-                const resp = await fetch(SCRIPT_URL + "?t=" + new Date().getTime());
-                listaHermanas = await resp.json();
-                
-                const select = document.getElementById('select-usuario');
-                select.innerHTML = '<option value="">Selecciona tu nombre</option>';
-                listaHermanas.forEach(h => {
-                    const opt = document.createElement('option');
-                    opt.value = h;
-                    opt.textContent = h;
-                    select.appendChild(opt);
-                });
-                document.getElementById('status-msg').innerText = "Lista actualizada ✨";
-            } catch (e) {
-                document.getElementById('status-msg').innerText = "Hubo un error al cargar la lista.";
-            }
-        }
-
-        // Pasar del login a la selección
-        function acceder() {
-            const user = document.getElementById('select-usuario').value;
-            const pass = document.getElementById('pass-usuario').value;
+    async function cargarHermanas() {
+        try {
+            const resp = await fetch(SCRIPT_URL + "?t=" + new Date().getTime());
+            listaHermanas = await resp.json();
             
-            if(!user || !pass) {
-                alert("Completa tus credenciales, por favor."); // Única alerta nativa permitida si dejan vacío
-                return;
-            }
-
-            usuarioActual = user;
-            passActual = pass;
-
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('vote-section').style.display = 'flex';
-            
-            renderBubbles();
-        }
-
-        function renderBubbles() {
-            const div = document.getElementById('vote-section');
-            div.innerHTML = "";
+            const select = document.getElementById('select-usuario');
+            select.innerHTML = '<option value="">Selecciona tu nombre</option>';
             listaHermanas.forEach(h => {
-                const bubble = document.createElement('div');
-                bubble.className = 'hermana-bubble';
-                bubble.innerText = h;
-                // Al hacer clic, abre la ventana custom
-                bubble.onclick = () => abrirModal(h);
-                div.appendChild(bubble);
+                const opt = document.createElement('option');
+                opt.value = h;
+                opt.textContent = h;
+                select.appendChild(opt);
             });
+            document.getElementById('status-msg').innerText = "Lista actualizada ✨";
+        } catch (e) {
+            document.getElementById('status-msg').innerText = "Hubo un error al cargar la lista.";
+        }
+    }
+
+    // NUEVA LÓGICA DE LOGIN
+    async function acceder() {
+        const user = document.getElementById('select-usuario').value;
+        const pass = document.getElementById('pass-usuario').value;
+        
+        if(!user || !pass) {
+            alert("Completa tus credenciales, por favor.");
+            return;
         }
 
-        // LÓGICA DE VENTANAS Y ANIMACIONES
-        function abrirModal(elegida) {
-            hermanaElegida = elegida;
-            document.getElementById('confirm-text').innerText = `¿Quieres dar tu estrella de hoy a ${elegida}?`;
-            document.getElementById('custom-confirm').style.display = 'flex';
-        }
+        usuarioActual = user;
+        passActual = pass;
 
-        function cerrarModal() {
-            document.getElementById('custom-confirm').style.display = 'none';
-        }
+        // Mostrar pantalla de carga
+        document.getElementById('loading-screen').style.display = 'flex';
 
-        async function procesarVoto() {
-            cerrarModal();
-            document.getElementById('loading-screen').style.display = 'flex';
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "login",
+                    votante: usuarioActual,
+                    password: passActual
+                })
+            });
+            
+            const res = await response.json();
+            document.getElementById('loading-screen').style.display = 'none';
 
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        votante: usuarioActual,
-                        password: passActual,
-                        elegida: hermanaElegida
-                    })
-                });
-                
-                const res = await response.json();
-                document.getElementById('loading-screen').style.display = 'none';
-
-                // Evaluamos la respuesta del Excel
-                if (res.status.includes("éxito")) {
-                    iniciarAnimacion();
-                } else if (res.status.includes("habilitada")) {
-                    mostrarError("Parece que esta semana no estás habilitada para votar.");
-                } else if (res.status.includes("Ya diste")) {
-                    mostrarError("Ya has enviado tu estrella esta semana. ¡Vuelve el próximo sábado!");
-                } else if (res.status.includes("Contraseña")) {
-                    mostrarError("La contraseña es incorrecta. Intenta de nuevo.");
-                } else {
-                    mostrarError(res.status);
-                }
-            } catch (e) {
-                document.getElementById('loading-screen').style.display = 'none';
-                mostrarError("Hubo un problema de conexión. Intenta de nuevo.");
+            if (res.status === "Login OK") {
+                // Si todo está perfecto, entramos a votar
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('vote-section').style.display = 'flex';
+                renderBubbles();
+            } else if (res.status.includes("Contraseña")) {
+                alert("Contraseña incorrecta. Por favor, intenta de nuevo.");
+            } else if (res.status.includes("habilitada")) {
+                mostrarError("Parece que esta semana no estás habilitada para votar.");
+            } else if (res.status.includes("Ya diste")) {
+                mostrarError("Ya has enviado tu estrella esta semana. ¡Vuelve el próximo sábado!");
+            } else {
+                mostrarError(res.status);
             }
+        } catch (e) {
+            document.getElementById('loading-screen').style.display = 'none';
+            alert("Hubo un problema de conexión al validar tu identidad.");
         }
+    }
 
-        function iniciarAnimacion() {
-            const animScreen = document.getElementById('star-anim-screen');
-            const star = document.getElementById('the-star');
-            
-            // Ocultamos las otras cosas para que quede el fondo limpio
-            document.getElementById('main-header').style.display = 'none';
-            document.getElementById('vote-section').style.display = 'none';
-            
-            animScreen.style.display = 'flex';
-            star.classList.add('animar-estrella');
+    function renderBubbles() {
+        const div = document.getElementById('vote-section');
+        div.innerHTML = "";
+        
+        // Filtramos para que NO aparezca el nombre de la usuaria actual
+        const hermanasFiltradas = listaHermanas.filter(h => h !== usuarioActual);
+        
+        hermanasFiltradas.forEach(h => {
+            const bubble = document.createElement('div');
+            bubble.className = 'hermana-bubble';
+            bubble.innerText = h;
+            bubble.onclick = () => abrirModal(h);
+            div.appendChild(bubble);
+        });
+    }
 
-            // Cuando la animación termine (2 segundos), mostramos la pantalla de éxito
-            setTimeout(() => {
-                animScreen.style.display = 'none';
-                document.getElementById('success-screen').style.display = 'flex';
-            }, 2000);
+    function abrirModal(elegida) {
+        hermanaElegida = elegida;
+        document.getElementById('confirm-text').innerText = `¿Quieres dar tu estrella de hoy a ${elegida}?`;
+        document.getElementById('custom-confirm').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+        document.getElementById('custom-confirm').style.display = 'none';
+    }
+
+    // NUEVA LÓGICA DE ENVÍO DE VOTO
+    async function procesarVoto() {
+        cerrarModal();
+        document.getElementById('loading-screen').style.display = 'flex';
+
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "votar",
+                    votante: usuarioActual,
+                    password: passActual,
+                    elegida: hermanaElegida
+                })
+            });
+            
+            const res = await response.json();
+            document.getElementById('loading-screen').style.display = 'none';
+
+            if (res.status.includes("éxito")) {
+                iniciarAnimacion();
+            } else {
+                mostrarError(res.status); // Por si acaso ocurre un error de último segundo
+            }
+        } catch (e) {
+            document.getElementById('loading-screen').style.display = 'none';
+            mostrarError("Hubo un problema al enviar la estrella. Intenta de nuevo.");
         }
+    }
 
-        function mostrarError(motivo) {
-            document.getElementById('main-header').style.display = 'none';
-            document.getElementById('vote-section').style.display = 'none';
-            
-            document.getElementById('error-motivo').innerText = motivo;
-            document.getElementById('error-screen').style.display = 'flex';
-        }
+    function iniciarAnimacion() {
+        const animScreen = document.getElementById('star-anim-screen');
+        const star = document.getElementById('the-star');
+        
+        document.getElementById('main-header').style.display = 'none';
+        document.getElementById('vote-section').style.display = 'none';
+        
+        animScreen.style.display = 'flex';
+        star.classList.add('animar-estrella');
 
-        window.onload = cargarHermanas;
-    </script>
+        setTimeout(() => {
+            animScreen.style.display = 'none';
+            document.getElementById('success-screen').style.display = 'flex';
+        }, 2000);
+    }
+
+    function mostrarError(motivo) {
+        document.getElementById('main-header').style.display = 'none';
+        document.getElementById('vote-section').style.display = 'none';
+        document.getElementById('error-motivo').innerText = motivo;
+        document.getElementById('error-screen').style.display = 'flex';
+    }
+
+    window.onload = cargarHermanas;
+</script>
 </body>
 </html>
