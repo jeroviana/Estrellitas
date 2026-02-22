@@ -40,6 +40,7 @@
             text-shadow: 0 0 15px rgba(255, 126, 179, 0.5);
         }
 
+        /* Sección de Login */
         #login-section {
             margin-top: 30px;
             background: var(--cristal);
@@ -66,6 +67,17 @@
             outline: none;
         }
 
+        /* Mensaje de error de contraseña */
+        #login-error-msg {
+            color: #ff4d4d;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: -5px;
+            margin-bottom: 10px;
+            display: none;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
         .btn-magico {
             background: linear-gradient(45deg, var(--rosa-brillante), #ff5285);
             color: white;
@@ -84,6 +96,7 @@
 
         .btn-magico:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
 
+        /* Sección de Votación */
         #vote-section {
             display: none;
             padding: 30px 20px;
@@ -101,6 +114,14 @@
             cursor: pointer;
             transition: 0.3s;
             animation: float 4s ease-in-out infinite;
+            /* Flexbox asegura el centrado perfecto del texto */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 55px; 
+            box-sizing: border-box;
+            text-align: center;
         }
 
         .hermana-bubble:hover {
@@ -110,12 +131,33 @@
             box-shadow: 0 0 15px var(--rosa-brillante);
         }
 
-        .hermana-bubble.ausente {
+        /* Letra más linda para las presentes */
+        .hermana-presente {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+        }
+
+        /* Estilo para las ausentes */
+        .hermana-ausente {
+            font-family: 'Montserrat', sans-serif; /* Letra normal para ausentes */
             background: rgba(100, 100, 100, 0.1);
             border-color: rgba(255,255,255,0.2);
             color: rgba(255,255,255,0.3);
             cursor: not-allowed;
             animation: none;
+            font-size: 1rem;
+        }
+
+        .hermana-ausente:hover {
+            background: rgba(100, 100, 100, 0.1);
+            transform: none !important;
+            box-shadow: none;
+        }
+
+        .texto-ausente {
+            font-size: 0.75rem;
+            margin-top: 3px;
+            opacity: 0.7;
         }
 
         @keyframes float {
@@ -123,6 +165,7 @@
             50% { transform: translateY(-10px); }
         }
 
+        /* PANTALLAS COMPLETAS (Overlays) */
         .fullscreen-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -138,6 +181,7 @@
             box-sizing: border-box;
         }
 
+        /* Ventana de Confirmación */
         .modal-box {
             background: var(--cristal);
             padding: 40px;
@@ -151,8 +195,12 @@
         .botones-modal { display: flex; gap: 15px; margin-top: 25px; }
         .btn-cancelar { background: transparent; border: 2px solid var(--rosa-claro); color: white; }
 
+        /* Animación Estrella Gigante */
         #star-anim-screen { background: var(--fondo-noche); z-index: 2000; }
-        .giant-star { font-size: 5rem; filter: drop-shadow(0 0 20px var(--dorado)); }
+        .giant-star {
+            font-size: 5rem;
+            filter: drop-shadow(0 0 20px var(--dorado));
+        }
         .animar-estrella { animation: explodeStar 2s forwards ease-in-out; }
 
         @keyframes explodeStar {
@@ -161,9 +209,12 @@
             100% { transform: scale(50) rotate(360deg); opacity: 0; }
         }
 
+        /* Pantallas de Mensajes (Éxito y Error) */
         .mensaje-titulo { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--rosa-brillante); margin-bottom: 10px; }
         .mensaje-sub { font-size: 1.2rem; margin-bottom: 30px; }
         .mensaje-chico { font-size: 0.85rem; color: var(--rosa-claro); opacity: 0.8; max-width: 80%; margin: 20px auto; }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -179,6 +230,9 @@
             <option value="">Esperando nombres...</option>
         </select>
         <input type="password" id="pass-usuario" placeholder="Tu contraseña">
+        
+        <div id="login-error-msg"></div>
+
         <button class="btn-magico" onclick="acceder()">Validar Identidad</button>
     </div>
 
@@ -217,7 +271,7 @@
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
-    let listaHermanasRaw = []; 
+    let listaHermanasRaw = [];
     let usuarioActual = "";
     let passActual = "";
     let hermanaElegida = "";
@@ -245,9 +299,14 @@
     async function acceder() {
         const user = document.getElementById('select-usuario').value;
         const pass = document.getElementById('pass-usuario').value;
+        const errorMsg = document.getElementById('login-error-msg');
+        
+        // Limpiamos errores previos
+        errorMsg.style.display = 'none';
         
         if(!user || !pass) {
-            alert("Completa tus credenciales, por favor.");
+            errorMsg.innerText = "Completa tus credenciales, por favor.";
+            errorMsg.style.display = 'block';
             return;
         }
 
@@ -273,13 +332,22 @@
                 document.getElementById('vote-section').style.display = 'flex';
                 renderBubbles();
             } else if (res.status.includes("Contraseña")) {
-                alert("Error: Contraseña incorrecta.");
+                // Mostramos el texto rojo debajo del input
+                errorMsg.innerText = "Contraseña incorrecta. Intenta de nuevo.";
+                errorMsg.style.display = 'block';
+            } else if (res.status.includes("habilitada")) {
+                // Restauramos el mensaje original que tenías
+                mostrarError("Parece que esta semana no estás habilitada para votar.");
+            } else if (res.status.includes("Ya diste") || res.status.includes("voto")) {
+                // Restauramos el mensaje original
+                mostrarError("Ya has enviado tu estrella esta semana. ¡Vuelve el próximo sábado!");
             } else {
-                mostrarError(res.status); // Aquí mostrará el mensaje de "No habilitada" o "Ya voto" según el Script
+                mostrarError(res.status);
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
-            alert("Hubo un problema de conexión.");
+            errorMsg.innerText = "Problema de conexión. Intenta de nuevo.";
+            errorMsg.style.display = 'block';
         }
     }
 
@@ -291,14 +359,16 @@
             if (h.nombre === usuarioActual) return;
 
             const bubble = document.createElement('div');
-            // IMPORTANTE: Comparamos con "SI" tal cual lo envía el script
             const estaHabilitada = (h.asistencia === "SI");
             
-            bubble.className = estaHabilitada ? 'hermana-bubble' : 'hermana-bubble ausente';
-            bubble.innerText = h.nombre;
-            
             if(estaHabilitada) {
+                bubble.className = 'hermana-bubble hermana-presente';
+                bubble.innerText = h.nombre;
                 bubble.onclick = () => abrirModal(h.nombre);
+            } else {
+                bubble.className = 'hermana-bubble hermana-ausente';
+                // Añadimos el texto (Ausente) debajo del nombre
+                bubble.innerHTML = `<span>${h.nombre}</span><span class="texto-ausente">(Ausente)</span>`;
             }
             
             div.appendChild(bubble);
@@ -336,19 +406,21 @@
             if (res.status.includes("éxito")) {
                 iniciarAnimacion();
             } else {
-                mostrarError(res.status);
+                mostrarError(res.status); 
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
-            mostrarError("Error al enviar la estrella.");
+            mostrarError("Hubo un problema al enviar la estrella. Intenta de nuevo.");
         }
     }
 
     function iniciarAnimacion() {
         const animScreen = document.getElementById('star-anim-screen');
         const star = document.getElementById('the-star');
+        
         document.getElementById('main-header').style.display = 'none';
         document.getElementById('vote-section').style.display = 'none';
+        
         animScreen.style.display = 'flex';
         star.classList.add('animar-estrella');
 
