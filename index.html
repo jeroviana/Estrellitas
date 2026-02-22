@@ -40,7 +40,6 @@
             text-shadow: 0 0 15px rgba(255, 126, 179, 0.5);
         }
 
-        /* Sección de Login */
         #login-section {
             margin-top: 30px;
             background: var(--cristal);
@@ -85,7 +84,6 @@
 
         .btn-magico:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
 
-        /* Sección de Votación */
         #vote-section {
             display: none;
             padding: 30px 20px;
@@ -103,24 +101,21 @@
             cursor: pointer;
             transition: 0.3s;
             animation: float 4s ease-in-out infinite;
-            text-align: center;
         }
 
-        .hermana-bubble:hover:not(.ausente) {
+        .hermana-bubble:hover {
             background: var(--rosa-brillante);
             color: white;
             transform: scale(1.1) !important;
             box-shadow: 0 0 15px var(--rosa-brillante);
         }
 
-        /* Estilo para Ausentes (Opción B) */
         .hermana-bubble.ausente {
-            background: rgba(100, 100, 100, 0.2);
-            border-color: #666;
-            color: #888;
+            background: rgba(100, 100, 100, 0.1);
+            border-color: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.3);
             cursor: not-allowed;
             animation: none;
-            opacity: 0.6;
         }
 
         @keyframes float {
@@ -128,7 +123,6 @@
             50% { transform: translateY(-10px); }
         }
 
-        /* Overlays */
         .fullscreen-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -210,7 +204,7 @@
 
     <div id="success-screen" class="fullscreen-overlay">
         <div class="mensaje-titulo">Estrella enviada.</div>
-        <div class="mensaje-sub">¡Gracias mi hermana!</div>
+        <div class="mensaje-sub">Gracias mi hermana!</div>
         <button class="btn-magico" style="max-width: 250px;" onclick="location.reload()">Volver a inicio</button>
     </div>
 
@@ -223,7 +217,7 @@
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
-    let listaHermanasRaw = []; // Guardará {nombre, asistencia}
+    let listaHermanasRaw = []; 
     let usuarioActual = "";
     let passActual = "";
     let hermanaElegida = "";
@@ -259,7 +253,6 @@
 
         usuarioActual = user;
         passActual = pass;
-
         document.getElementById('loading-screen').style.display = 'flex';
 
         try {
@@ -279,8 +272,10 @@
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('vote-section').style.display = 'flex';
                 renderBubbles();
+            } else if (res.status.includes("Contraseña")) {
+                alert("Error: Contraseña incorrecta.");
             } else {
-                mostrarError(res.status);
+                mostrarError(res.status); // Aquí mostrará el mensaje de "No habilitada" o "Ya voto" según el Script
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
@@ -292,15 +287,15 @@
         const div = document.getElementById('vote-section');
         div.innerHTML = "";
         
-        // Filtramos para que no se vote a sí misma
-        const hermanasFiltradas = listaHermanasRaw.filter(h => h.nombre !== usuarioActual);
-        
-        hermanasFiltradas.forEach(h => {
+        listaHermanasRaw.forEach(h => {
+            if (h.nombre === usuarioActual) return;
+
             const bubble = document.createElement('div');
-            const estaHabilitada = h.asistencia === "SI";
+            // IMPORTANTE: Comparamos con "SI" tal cual lo envía el script
+            const estaHabilitada = (h.asistencia === "SI");
             
             bubble.className = estaHabilitada ? 'hermana-bubble' : 'hermana-bubble ausente';
-            bubble.innerHTML = estaHabilitada ? h.nombre : `${h.nombre}<br><small>(Ausente)</small>`;
+            bubble.innerText = h.nombre;
             
             if(estaHabilitada) {
                 bubble.onclick = () => abrirModal(h.nombre);
