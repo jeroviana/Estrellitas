@@ -83,7 +83,7 @@
             box-shadow: 0 5px 15px rgba(255, 82, 133, 0.4);
         }
 
-        .btn-magico:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
+        .btn-magico:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
 
         /* Sección de Votación */
         #vote-section {
@@ -103,13 +103,24 @@
             cursor: pointer;
             transition: 0.3s;
             animation: float 4s ease-in-out infinite;
+            text-align: center;
         }
 
-        .hermana-bubble:hover {
+        .hermana-bubble:hover:not(.ausente) {
             background: var(--rosa-brillante);
             color: white;
             transform: scale(1.1) !important;
             box-shadow: 0 0 15px var(--rosa-brillante);
+        }
+
+        /* ESTILO AUSENTE (OPCIÓN B) */
+        .hermana-bubble.ausente {
+            background: rgba(100, 100, 100, 0.2);
+            border-color: #666;
+            color: #888;
+            cursor: not-allowed;
+            animation: none;
+            opacity: 0.6;
         }
 
         @keyframes float {
@@ -117,7 +128,7 @@
             50% { transform: translateY(-10px); }
         }
 
-        /* PANTALLAS COMPLETAS (Overlays) */
+        /* Overlays */
         .fullscreen-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -133,26 +144,19 @@
             box-sizing: border-box;
         }
 
-        /* Ventana de Confirmación */
         .modal-box {
             background: var(--cristal);
             padding: 40px;
             border-radius: 30px;
             border: 2px solid var(--rosa-claro);
             max-width: 400px;
-            box-shadow: 0 0 30px rgba(255, 126, 179, 0.3);
         }
 
         .modal-box h2 { color: var(--rosa-claro); font-family: 'Playfair Display', serif; margin-top: 0; }
         .botones-modal { display: flex; gap: 15px; margin-top: 25px; }
         .btn-cancelar { background: transparent; border: 2px solid var(--rosa-claro); color: white; }
 
-        /* Animación Estrella Gigante */
-        #star-anim-screen { background: var(--fondo-noche); z-index: 2000; }
-        .giant-star {
-            font-size: 5rem;
-            filter: drop-shadow(0 0 20px var(--dorado));
-        }
+        .giant-star { font-size: 5rem; filter: drop-shadow(0 0 20px var(--dorado)); }
         .animar-estrella { animation: explodeStar 2s forwards ease-in-out; }
 
         @keyframes explodeStar {
@@ -161,12 +165,8 @@
             100% { transform: scale(50) rotate(360deg); opacity: 0; }
         }
 
-        /* Pantallas de Mensajes (Éxito y Error) */
         .mensaje-titulo { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--rosa-brillante); margin-bottom: 10px; }
         .mensaje-sub { font-size: 1.2rem; margin-bottom: 30px; }
-        .mensaje-chico { font-size: 0.85rem; color: var(--rosa-claro); opacity: 0.8; max-width: 80%; margin: 20px auto; }
-
-        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -207,20 +207,19 @@
 
     <div id="success-screen" class="fullscreen-overlay">
         <div class="mensaje-titulo">Estrella enviada.</div>
-        <div class="mensaje-sub">Gracias mi hermana!</div>
+        <div class="mensaje-sub">¡Gracias mi hermana!</div>
         <button class="btn-magico" style="max-width: 250px;" onclick="location.reload()">Volver a inicio</button>
     </div>
 
     <div id="error-screen" class="fullscreen-overlay">
         <div class="mensaje-titulo">¡Lo sentimos!</div>
-        <div class="mensaje-sub" id="error-motivo">Parece que esta semana no estás habilitada para votar.</div>
-        <div class="mensaje-chico">Si crees que se trata de un error por favor comunicate con alguna de las oficiales.</div>
+        <div id="error-motivo" class="mensaje-sub">Parece que esta semana no estás habilitada para votar.</div>
         <button class="btn-magico btn-cancelar" style="max-width: 250px;" onclick="location.reload()">Volver</button>
     </div>
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
-    let listaHermanas = [];
+    let listaHermanasRaw = []; // Guardará objetos con {nombre, asistencia}
     let usuarioActual = "";
     let passActual = "";
     let hermanaElegida = "";
@@ -228,14 +227,20 @@
     async function cargarHermanas() {
         try {
             const resp = await fetch(SCRIPT_URL + "?t=" + new Date().getTime());
-            listaHermanas = await resp.json();
+            const data = await resp.json();
+            
+            // Adaptamos según si el Script manda solo nombres o objetos
+            listaHermanasRaw = data.map(h => {
+                return typeof h === 'object' ? h : { nombre: h, asistencia: "SÍ" };
+            });
             
             const select = document.getElementById('select-usuario');
             select.innerHTML = '<option value="">Selecciona tu nombre</option>';
-            listaHermanas.forEach(h => {
+            
+            listaHermanasRaw.forEach(h => {
                 const opt = document.createElement('option');
-                opt.value = h;
-                opt.textContent = h;
+                opt.value = h.nombre;
+                opt.textContent = h.nombre;
                 select.appendChild(opt);
             });
             document.getElementById('status-msg').innerText = "Lista actualizada ✨";
@@ -244,7 +249,6 @@
         }
     }
 
-    // NUEVA LÓGICA DE LOGIN
     async function acceder() {
         const user = document.getElementById('select-usuario').value;
         const pass = document.getElementById('pass-usuario').value;
@@ -256,8 +260,6 @@
 
         usuarioActual = user;
         passActual = pass;
-
-        // Mostrar pantalla de carga
         document.getElementById('loading-screen').style.display = 'flex';
 
         try {
@@ -274,22 +276,15 @@
             document.getElementById('loading-screen').style.display = 'none';
 
             if (res.status === "Login OK") {
-                // Si todo está perfecto, entramos a votar
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('vote-section').style.display = 'flex';
                 renderBubbles();
-            } else if (res.status.includes("Contraseña")) {
-                alert("Contraseña incorrecta. Por favor, intenta de nuevo.");
-            } else if (res.status.includes("habilitada")) {
-                mostrarError("Parece que esta semana no estás habilitada para votar.");
-            } else if (res.status.includes("Ya diste")) {
-                mostrarError("Ya has enviado tu estrella esta semana. ¡Vuelve el próximo sábado!");
             } else {
                 mostrarError(res.status);
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
-            alert("Hubo un problema de conexión al validar tu identidad.");
+            alert("Error de conexión.");
         }
     }
 
@@ -297,14 +292,20 @@
         const div = document.getElementById('vote-section');
         div.innerHTML = "";
         
-        // Filtramos para que NO aparezca el nombre de la usuaria actual
-        const hermanasFiltradas = listaHermanas.filter(h => h !== usuarioActual);
+        // Filtramos para que no aparezca la misma usuaria
+        const hermanasFiltradas = listaHermanasRaw.filter(h => h.nombre !== usuarioActual);
         
         hermanasFiltradas.forEach(h => {
             const bubble = document.createElement('div');
-            bubble.className = 'hermana-bubble';
-            bubble.innerText = h;
-            bubble.onclick = () => abrirModal(h);
+            const estaPresente = h.asistencia.toUpperCase() === "SÍ";
+            
+            bubble.className = estaPresente ? 'hermana-bubble' : 'hermana-bubble ausente';
+            bubble.innerHTML = estaPresente ? h.nombre : `${h.nombre}<br><small>(Ausente)</small>`;
+            
+            if(estaPresente) {
+                bubble.onclick = () => abrirModal(h.nombre);
+            }
+            
             div.appendChild(bubble);
         });
     }
@@ -319,7 +320,6 @@
         document.getElementById('custom-confirm').style.display = 'none';
     }
 
-    // NUEVA LÓGICA DE ENVÍO DE VOTO
     async function procesarVoto() {
         cerrarModal();
         document.getElementById('loading-screen').style.display = 'flex';
@@ -341,24 +341,21 @@
             if (res.status.includes("éxito")) {
                 iniciarAnimacion();
             } else {
-                mostrarError(res.status); // Por si acaso ocurre un error de último segundo
+                mostrarError(res.status);
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
-            mostrarError("Hubo un problema al enviar la estrella. Intenta de nuevo.");
+            mostrarError("Error al enviar la estrella.");
         }
     }
 
     function iniciarAnimacion() {
         const animScreen = document.getElementById('star-anim-screen');
         const star = document.getElementById('the-star');
-        
         document.getElementById('main-header').style.display = 'none';
         document.getElementById('vote-section').style.display = 'none';
-        
         animScreen.style.display = 'flex';
         star.classList.add('animar-estrella');
-
         setTimeout(() => {
             animScreen.style.display = 'none';
             document.getElementById('success-screen').style.display = 'flex';
@@ -368,6 +365,7 @@
     function mostrarError(motivo) {
         document.getElementById('main-header').style.display = 'none';
         document.getElementById('vote-section').style.display = 'none';
+        document.getElementById('login-section').style.display = 'none';
         document.getElementById('error-motivo').innerText = motivo;
         document.getElementById('error-screen').style.display = 'flex';
     }
