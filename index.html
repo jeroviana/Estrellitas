@@ -83,7 +83,7 @@
             box-shadow: 0 5px 15px rgba(255, 82, 133, 0.4);
         }
 
-        .btn-magico:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
+        .btn-magico:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(255, 82, 133, 0.6); }
 
         /* Sección de Votación */
         #vote-section {
@@ -113,7 +113,7 @@
             box-shadow: 0 0 15px var(--rosa-brillante);
         }
 
-        /* ESTILO AUSENTE (OPCIÓN B) */
+        /* Estilo para Ausentes (Opción B) */
         .hermana-bubble.ausente {
             background: rgba(100, 100, 100, 0.2);
             border-color: #666;
@@ -150,12 +150,14 @@
             border-radius: 30px;
             border: 2px solid var(--rosa-claro);
             max-width: 400px;
+            box-shadow: 0 0 30px rgba(255, 126, 179, 0.3);
         }
 
         .modal-box h2 { color: var(--rosa-claro); font-family: 'Playfair Display', serif; margin-top: 0; }
         .botones-modal { display: flex; gap: 15px; margin-top: 25px; }
         .btn-cancelar { background: transparent; border: 2px solid var(--rosa-claro); color: white; }
 
+        #star-anim-screen { background: var(--fondo-noche); z-index: 2000; }
         .giant-star { font-size: 5rem; filter: drop-shadow(0 0 20px var(--dorado)); }
         .animar-estrella { animation: explodeStar 2s forwards ease-in-out; }
 
@@ -167,6 +169,7 @@
 
         .mensaje-titulo { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--rosa-brillante); margin-bottom: 10px; }
         .mensaje-sub { font-size: 1.2rem; margin-bottom: 30px; }
+        .mensaje-chico { font-size: 0.85rem; color: var(--rosa-claro); opacity: 0.8; max-width: 80%; margin: 20px auto; }
     </style>
 </head>
 <body>
@@ -213,13 +216,14 @@
 
     <div id="error-screen" class="fullscreen-overlay">
         <div class="mensaje-titulo">¡Lo sentimos!</div>
-        <div id="error-motivo" class="mensaje-sub">Parece que esta semana no estás habilitada para votar.</div>
+        <div class="mensaje-sub" id="error-motivo">Parece que esta semana no estás habilitada para votar.</div>
+        <div class="mensaje-chico">Si crees que se trata de un error por favor comunicate con alguna de las oficiales.</div>
         <button class="btn-magico btn-cancelar" style="max-width: 250px;" onclick="location.reload()">Volver</button>
     </div>
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZC6cOAM7oSEPkQ75Nxea1HZRIiZWYb-wospwtYBW7WxenPDxWHK8PYYxnKcCn3PhPkQ/exec";
-    let listaHermanasRaw = []; // Guardará objetos con {nombre, asistencia}
+    let listaHermanasRaw = []; // Guardará {nombre, asistencia}
     let usuarioActual = "";
     let passActual = "";
     let hermanaElegida = "";
@@ -227,12 +231,7 @@
     async function cargarHermanas() {
         try {
             const resp = await fetch(SCRIPT_URL + "?t=" + new Date().getTime());
-            const data = await resp.json();
-            
-            // Adaptamos según si el Script manda solo nombres o objetos
-            listaHermanasRaw = data.map(h => {
-                return typeof h === 'object' ? h : { nombre: h, asistencia: "SÍ" };
-            });
+            listaHermanasRaw = await resp.json();
             
             const select = document.getElementById('select-usuario');
             select.innerHTML = '<option value="">Selecciona tu nombre</option>';
@@ -260,6 +259,7 @@
 
         usuarioActual = user;
         passActual = pass;
+
         document.getElementById('loading-screen').style.display = 'flex';
 
         try {
@@ -284,7 +284,7 @@
             }
         } catch (e) {
             document.getElementById('loading-screen').style.display = 'none';
-            alert("Error de conexión.");
+            alert("Hubo un problema de conexión.");
         }
     }
 
@@ -292,17 +292,17 @@
         const div = document.getElementById('vote-section');
         div.innerHTML = "";
         
-        // Filtramos para que no aparezca la misma usuaria
+        // Filtramos para que no se vote a sí misma
         const hermanasFiltradas = listaHermanasRaw.filter(h => h.nombre !== usuarioActual);
         
         hermanasFiltradas.forEach(h => {
             const bubble = document.createElement('div');
-            const estaPresente = h.asistencia.toUpperCase() === "SÍ";
+            const estaHabilitada = h.asistencia === "SI";
             
-            bubble.className = estaPresente ? 'hermana-bubble' : 'hermana-bubble ausente';
-            bubble.innerHTML = estaPresente ? h.nombre : `${h.nombre}<br><small>(Ausente)</small>`;
+            bubble.className = estaHabilitada ? 'hermana-bubble' : 'hermana-bubble ausente';
+            bubble.innerHTML = estaHabilitada ? h.nombre : `${h.nombre}<br><small>(Ausente)</small>`;
             
-            if(estaPresente) {
+            if(estaHabilitada) {
                 bubble.onclick = () => abrirModal(h.nombre);
             }
             
@@ -356,6 +356,7 @@
         document.getElementById('vote-section').style.display = 'none';
         animScreen.style.display = 'flex';
         star.classList.add('animar-estrella');
+
         setTimeout(() => {
             animScreen.style.display = 'none';
             document.getElementById('success-screen').style.display = 'flex';
